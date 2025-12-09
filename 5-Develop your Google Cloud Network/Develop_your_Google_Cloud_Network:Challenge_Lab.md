@@ -216,24 +216,27 @@ kubectl get service wordpress --watch
 
 #### 8.1 Get the Public IP Address of the Load Balancer
 ``` bash
-EXTERNAL_IP=$(kubectl get service wordpress --format='jsonpath="{.status.loadBalancer.ingress[0].ip}"')
+EXTERNAL_IP=$(kubectl get service wordpress -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
 echo "IP Pública de WordPress: $EXTERNAL_IP"
 ```
 
 #### 8.2 Create the Uptime Check
 ``` bash
-gcloud alpha monitoring uptime-checks create http griffin-dev-wordpress-check \
-    --display-name="WordPress Dev Uptime Check" \
-    --resource-type=uptime_url \
-    --resource-labels=host=$EXTERNAL_IP \
+gcloud monitoring uptime create "Griffin WordPress Uptime Check" \
+    --resource-type=uptime-url \
+    --resource-labels="host=$EXTERNAL_IP" \
+    --period=1 \
+    --timeout=10 \
+    --protocol=http \
     --port=80 \
-    --validate-ssl=false
+    --path=/
 ```
 
 ## Task 9. Provide Access for an Additional Engineer
 #### Provide access for an additional engineer:
 ``` bash
-export SECOND_USER_EMAIL="student-XX-XXXX@qwiklabs.net"
+export SECOND_USER_EMAIL="student-00-cd67407e078a@qwiklabs.net"
 
 # Aplicar el rol de Editor
 gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
