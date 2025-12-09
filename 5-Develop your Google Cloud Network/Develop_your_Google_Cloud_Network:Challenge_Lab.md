@@ -16,8 +16,8 @@ gcloud config list project
 
 #### Export varaibles 
 ```bash
-export REGION="us-east1"
-export ZONE="us-east1"
+export REGION="us-central1"
+export ZONE="us-central1-c"
 ```
 
 #### In Cloud Shell, set the default region:
@@ -59,6 +59,11 @@ gcloud compute networks subnets create griffin-dev-mgmt \
 gcloud compute networks create griffin-prod-vpc --subnet-mode=custom
 ```
 
+#### SSH access for griffin-prod-vpc:
+``` bash
+gcloud compute firewall-rules create griffin-prod-vpc-ssh --network griffin-prod-vpc --allow tcp:22
+```
+
 #### Create subnet griffin-prod-wp IP address block: 192.168.48.0/20
 ``` bash
 gcloud compute networks subnets create griffin-prod-wp \
@@ -69,11 +74,6 @@ gcloud compute networks subnets create griffin-prod-wp \
 ``` bash
 gcloud compute networks subnets create griffin-prod-mgmt \
   --network=griffin-prod-vpc --region=$REGION --range=192.168.64.0/20
-```
-
-#### SSH access for griffin-prod-vpc:
-``` bash
-gcloud compute firewall-rules create griffin-prod-vpc-ssh --network griffin-prod-vpc --allow tcp:22
 ```
 
 ## Task 3. Create Bastion Host with Two NICs
@@ -138,6 +138,11 @@ gcloud container clusters create griffin-dev \
   --subnetwork=griffin-dev-wp
 ```
 
+#### Solo necesario si pierdes la conexión con el clúster
+``` bash
+gcloud container clusters get-credentials griffin-dev --zone=$ZONE
+```
+
 ## Task 6. Prepare the Kubernetes cluster
 #### 6.1 From Cloud Shell copy all files from gs://spls/gsp321/wp-k8s
 ``` bash
@@ -157,25 +162,14 @@ kubectl create secret generic cloudsql-instance-credentials \
     --from-file key.json
 ```
 
-#### 6.4 Add the following secrets and volume to the cluster using <b>wp-env.yaml</b>.
-#### Get Connection Name de Cloud SQL
+#### 6.4 Edit wp-env.yaml using SED
+#### Reemplaza username
 ``` bash
-DB_CONN=$(gcloud sql instances describe griffin-dev-db --format='value(connectionName)')
-echo $DB_CONN
+sed -i 's/username: .*/username: wp_user/' wp-env.yaml
 ```
-
-#### 6.5 Edit wp-env.yaml using SED
-#### Reemplaza username por el base64 correcto
+#### Reemplaza password
 ``` bash
-sed -i 's/username: .*/username: d3BfdXNlcg==/' wp-env.yaml
-```
-#### Reemplaza password por el base64 correcto
-``` bash
-sed -i 's/password: .*/password: c3Rvcm13aW5kX3J1bGVz/' wp-env.yaml
-```
-#### Reemplaza YOUR_SQL_INSTANCE por el Connection Name real
-``` bash
-sed -i "s/YOUR_SQL_INSTANCE/$CONNECTION_NAME/g" wp-env.yaml
+sed -i 's/password: .*/password: stormwind_rules/' wp-env.yaml
 ```
 
 #### 6.5 Apply environment configuration:
@@ -190,34 +184,32 @@ kubectl get pvc
 ```
 
 ## Task 7. Create WordPress Deployment
-#### 7.1 Get instance connection name:
-
-``` bash
-DB_CONN=$(gcloud sql instances describe griffin-dev-db --format='value(connectionName)')
-echo "Connection Name: $DB_CONN"
-```
-
-#### 7.2 Edit <b>wp-deployment.yaml</b> and replace <YOUR_SQL_INSTANCE>:
+#### 7.1 Edit <b>wp-deployment.yaml</b> and replace <YOUR_SQL_INSTANCE>:
 ``` bash
 sed -i "s/YOUR_SQL_INSTANCE/$CONNECTION_NAME/g" wp-deployment.yaml
 ```
 
-#### 7.3 Apply deployment configuration:
+#### 7.2 Apply deployment configuration:
 ``` bash
 kubectl apply -f wp-deployment.yaml
 ```
 
-#### 7.4 Create the Service for External Exposure. This file defines a LoadBalancer service to expose the WordPress
+#### 7.3 Create the Service for External Exposure. This file defines a LoadBalancer service to expose the WordPress
 ``` bash
 kubectl apply -f wp-service.yaml
 ```
 
-#### 7.4 Verify and Access the Site
+#### 7.4 Espera hasta que el estado sea 'Running' y READY sea '2/2'
 ``` bash
-kubectl get service wordpress
+kubectl get pods -w
 ```
-#### Use a browser to access the URL http://[EXTERNAL-IP]
 
+#### 7.5 Verify and Access the Site
+``` bash
+kubectl get service wordpress --watch
+```
+
+#### Use a browser to access the URL http://[EXTERNAL-IP]
 
 ## Task 8. Enable monitoring
 #### Create an uptime check for your WordPress development site.
@@ -241,9 +233,12 @@ gcloud alpha monitoring uptime-checks create http griffin-dev-wordpress-check \
 ## Task 9. Provide Access for an Additional Engineer
 #### Provide access for an additional engineer:
 ``` bash
+export SECOND_USER_EMAIL="student-XX-XXXX@qwiklabs.net"
+
+# Aplicar el rol de Editor
 gcloud projects add-iam-policy-binding $GOOGLE_CLOUD_PROJECT \
-   --member="user:SECOND_USER_EMAIL" \
-   --role="roles/editor"
+    --member="user:$SECOND_USER_EMAIL" \
+    --role="roles/editor"
 ```
 
 ## Congratulations!
