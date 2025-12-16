@@ -369,7 +369,7 @@ terraform apply
 # Add firewall rule for the tf-vpc
 resource "google_compute_firewall" "tf-firewall" {
   name    = "tf-firewall"
-  network = "projects/$DEVSHELL_PROJECT_ID/global/networks/tf-vpc-761569"
+  network = "projects/${var.project_id}/global/networks/tf-vpc-761569"
 
   allow {
     protocol = "tcp"
